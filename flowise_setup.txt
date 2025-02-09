@@ -1,0 +1,76 @@
+# Original Text from DentroAI - https://gist.github.com/dentroai/2c9601a192dce95ef3e57af3bb62e022
+# Updated by SolomonChrist.com with full video tutorial at https://www.youtube.com/@SolomonChristAI
+
+# Update the ubuntu server
+apt-get update && apt-get upgrade -y
+
+# Restart the server optionally and then ssh again into it
+shutdown -r now
+
+# open the http and https ports of the firewall
+ufw allow 80/tcp
+ufw allow 443/tcp 
+
+# on certain cloud providers you also need to open the SSH post 22, otherwise you won't be able to ssh into your machine anymore!
+ufw allow 22/tcp 
+
+# enable the firewall changes
+ufw enable
+
+# Install Caddy
+apt install -y debian-keyring debian-archive-keyring apt-transport-https curl && \
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg && \
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list && \
+apt update && \
+apt install caddy
+
+# download the Flowise project
+git clone https://github.com/FlowiseAI/Flowise.git
+
+# inside the Flowise folder create a .env file and pase in the environment variables from https://github.com/FlowiseAI/Flowise/blob/main/docker/.env.example
+cd Flowise
+
+# go to the docker folder and create a Caddy File
+cd docker
+nano Caddyfile
+
+# ** CHANGE YOUR DOMAIN NAME IN THE FIRST LINE ** Content of the Caddyfile - make sure to change the domain to your own (do not preceed it with http:// or https://)
+```
+flowise.jumpingcrab.com  # CHANGE THIS DOMAIN
+
+# Templates give static sites some dynamic features
+templates
+
+# Compress responses according to Accept-Encoding headers
+encode gzip zstd
+
+# Make HTML file extension optional
+try_files {path}.html {path}
+
+# Send API requests to backend
+reverse_proxy localhost:3000
+
+# Serve everything else from the file system
+file_server
+```
+
+# Visit Flowise Github Page to get environment variables https://github.com/FlowiseAI/Flowise/blob/main/docker/.env.example
+nano .env
+
+# Copy and paste the items from the .env example - or use the text below between the dashes - on Flowise and make sure to uncomment out the Username and Password and set your own
+```
+PORT=3000
+DATABASE_PATH=/root/.flowise
+APIKEY_PATH=/root/.flowise
+SECRETKEY_PATH=/root/.flowise
+LOG_PATH=/root/.flowise/logs
+BLOB_STORAGE_PATH=/root/.flowise/storage
+# FLOWISE_USERNAME=user
+# FLOWISE_PASSWORD=1234
+```
+
+# Restart the caddy server
+caddy stop
+caddy start
+
+# Success!
