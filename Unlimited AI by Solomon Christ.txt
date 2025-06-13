@@ -1,0 +1,188 @@
+Unlimited AI
+
+By Solomon Christ (https://www.SolomonChrist.com)
+
+Ollama Link - https://www.ollama.com
+LM Studio Link - https://www.lmstudio.ai
+
+----
+Commands (Check out SolomonChrist.com, Join my Skool Community https://www.skool.com/learn-automation/about)
+sudo swapoff /swapfile
+sudo rm -f /swapfile
+sudo dd if=/dev/zero of=/swapfile bs=1M count=2048 status=progress
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+swapon --show
+free -h
+
+----
+CUSTOM DOCKER FILE FOR OLLAMA COMMANDS
+# Check out SolomonChrist.com
+# From the /opt/n8n-docker-caddy folder
+mkdir ollama-custom
+cd ollama-custom
+nano Dockerfile
+
+Custom Dockerfile Code:
+# Check out SolomonChrist.com
+FROM ollama/ollama
+
+# Install curl
+RUN apt-get update && apt-get install -y curl
+
+# PRE-pull the llm model safely
+RUN nohup ollama serve > /dev/null 2>&1 & \
+    sleep 10 && \
+    curl -s -X POST http://localhost:11434/api/pull \
+      -H "Content-Type: application/json" \
+      -d '{"name": "tinyllama"}' && \
+    sleep 30 && \
+    pkill ollama
+
+# Start Ollama on container launch
+CMD ["serve"]
+
+----
+CUSTOM DOCKER COMPOSE YML File:
+# Check out SolomonChrist.com
+version: "3.7"
+
+services:
+  caddy:
+    image: caddy:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - ${DATA_FOLDER}/caddy_config:/config
+      - ${DATA_FOLDER}/caddy_config/Caddyfile:/etc/caddy/Caddyfile
+    networks:
+      - shared_net
+
+  n8n:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - 5678:5678
+    environment:
+      - N8N_HOST=${SUBDOMAIN}.${DOMAIN_NAME}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - NODE_ENV=production
+      - WEBHOOK_URL=https://${SUBDOMAIN}.${DOMAIN_NAME}/
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+      - N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ${DATA_FOLDER}/local_files:/files
+    networks:
+      - shared_net
+
+  mysql:
+    image: mysql:8.0
+    container_name: n8n-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: [YOUR_ROOT_PASSWORD]
+      MYSQL_DATABASE: n8ndb
+      MYSQL_USER: n8nuser
+      MYSQL_PASSWORD: [YOUR_MYSQL_USER_PASSWORD]
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - shared_net
+
+  ollama:
+    build:
+      context: ./ollama-custom
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - shared_net
+    deploy:
+      resources:
+        limits:
+          memory: 1.5g
+
+volumes:
+  caddy_data:
+    external: true
+  n8n_data:
+    external: true
+  mysql_data:
+  ollama_data:
+
+networks:
+  shared_net:
+    driver: bridge
+
+----
+ONCE COMPLETED THE ABOVE:
+cd ..
+docker compose down
+docker compose up -d --build
+
+# If you get error: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory                                  
+# Create a new Dockerfile in the /opt/n8n-docker-caddy folder called Dockerfile and paste the code below.
+nano Dockerfile
+
+----
+CUSTOM DOCKER FILE FOR BASE SYSTEM CLI COMMANDS:      
+# Check out SolomonChrist.com
+FROM n8nio/n8n:latest
+
+USER root
+
+# Install ffmpeg
+RUN apk update && \
+    apk add --no-cache \
+        ffmpeg \
+        imagemagick
+
+# Switch back to n8n user
+USER node
+
+----
+COMMANDS TO UPDATE LLM MODEL:
+cd ollama-custom
+nano Dockerfile
+docker volume ls
+docker volume rm n8n-docker-caddy_ollama_data
+docker system prune -a
+cd ..
+docker compose up -d --build
+
+----
+lms server start
+lms server stop
+
+----
+OTHER IMPORTANT LINKS:
+LM Studio Endpoints: https://lmstudio.ai/docs/app/api/endpoints/rest
+Cloudflared: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/#windows
+
+----
+CLOUDFLARED COMMAND:
+cloudflared-windows-amd64 tunnel --url http://localhost:1234
+
+CTRL+C to shut it down when done
+
+
+
+
+
+
+
+
