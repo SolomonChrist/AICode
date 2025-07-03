@@ -1,0 +1,468 @@
+{
+  "name": "n8n_Presentation_Generator_SolomonChrist",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -460,
+        -200
+      ],
+      "id": "3c0d7f77-b639-48ba-bbed-cea4b3ed4bcc",
+      "name": "When chat message received",
+      "webhookId": "b2e3a17c-c833-46f4-87a3-28727167f3e2"
+    },
+    {
+      "parameters": {
+        "title": "AI Generated Slide Deck"
+      },
+      "type": "n8n-nodes-base.googleSlides",
+      "typeVersion": 2,
+      "position": [
+        -180,
+        -200
+      ],
+      "id": "538394ad-a622-4b99-b4a7-8850c5528120",
+      "name": "Google Slides",
+      "credentials": {
+        "googleSlidesOAuth2Api": {
+          "id": "5XQZO6Q6qj15bXCl",
+          "name": "Google Slides account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an AI presentation builder. Given the topic: \"{{ $('When chat message received').item.json.chatInput }}\" and slide count: {{ $json.total_slides }}, generate a slide-by-slide breakdown of slide titles and bullet points in JSON format.\n\nEach slide should contain a title, subtitle and at least 5 detailed bullet points.\n\n\nFormat:\n[\n  {\n    \"title\": \"Slide Title\",\n    \"subtitle\": \"Slide Subtitle\",\n    \"bullets\": [\"Point 1\", \"Point 2\"]\n  },\n  ...\n]\n",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        500,
+        -200
+      ],
+      "id": "84334e7c-1967-434d-a3ee-8ae7fc689d96",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-3.5-turbo",
+          "mode": "list",
+          "cachedResultName": "gpt-3.5-turbo"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        500,
+        20
+      ],
+      "id": "eef5dc33-64b1-4442-8bd6-f35c9c50293c",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "G3pFrPimJIOnVbgR",
+          "name": "OpenAi account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json.output; // Stringified JSON\nconst slides = JSON.parse(input); // Parse to array\n\nreturn slides.map(slide => ({\n  json: slide\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        -200
+      ],
+      "id": "9d321288-60cb-432f-b9e2-d724fc833c1d",
+      "name": "Code",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1160,
+        -200
+      ],
+      "id": "c5523343-1261-42dc-8937-4e5e85a945ab",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1940,
+        -180
+      ],
+      "id": "4eb12b7d-f21b-4078-858c-1732b89bfb40",
+      "name": "Wait",
+      "webhookId": "98764c0c-3b3a-4a5a-8815-90d4a58da411"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://slides.googleapis.com/v1/presentations/{{ $('Google Slides').item.json.presentationId }}:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSlidesOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"requests\": [\n    {\n      \"createSlide\": {\n        \"objectId\": \"slide_{{ $runIndex }}\",\n        \"slideLayoutReference\": {\n          \"predefinedLayout\": \"BLANK\"\n        }\n      }\n    },\n    {\n      \"createShape\": {\n        \"objectId\": \"title_box_{{ $runIndex }}_1\",\n        \"shapeType\": \"TEXT_BOX\",\n        \"elementProperties\": {\n          \"pageObjectId\": \"slide_{{ $runIndex }}\",\n          \"size\": {\n            \"height\": {\n              \"magnitude\": 100,\n              \"unit\": \"PT\"\n            },\n            \"width\": {\n              \"magnitude\": 600,\n              \"unit\": \"PT\"\n            }\n          },\n          \"transform\": {\n            \"scaleX\": 1,\n            \"scaleY\": 1,\n            \"translateX\": 50,\n            \"translateY\": 50,\n            \"unit\": \"PT\"\n          }\n        }\n      }\n    },\n    {\n      \"insertText\": {\n        \"objectId\": \"title_box_{{ $runIndex }}_1\",\n        \"insertionIndex\": 0,\n        \"text\": \"{{ $('Loop Over Items').item.json.title }}\"\n      }\n    },\n    {\n      \"createShape\": {\n        \"objectId\": \"bullet_box_{{ $runIndex }}\",\n        \"shapeType\": \"TEXT_BOX\",\n        \"elementProperties\": {\n          \"pageObjectId\": \"slide_{{ $runIndex }}\",\n          \"size\": {\n            \"height\": {\n              \"magnitude\": 300,\n              \"unit\": \"PT\"\n            },\n            \"width\": {\n              \"magnitude\": 600,\n              \"unit\": \"PT\"\n            }\n          },\n          \"transform\": {\n            \"scaleX\": 1,\n            \"scaleY\": 1,\n            \"translateX\": 50,\n            \"translateY\": 170,\n            \"unit\": \"PT\"\n          }\n        }\n      }\n    },\n    {\n      \"insertText\": {\n        \"objectId\": \"bullet_box_{{ $runIndex }}\",\n        \"insertionIndex\": 0,\n        \"text\": \"{{ '- ' + $('Loop Over Items').item.json.bullets.join('\\\\n- ') }}\"\n      }\n    }\n  ]\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1560,
+        -380
+      ],
+      "id": "52f18b15-a0d6-4b5d-a192-c4a0ab41ef82",
+      "name": "Google Slide BASIC Generation",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Ej4NtQo17tHNhsez",
+          "name": "Google Sheets account"
+        },
+        "googleSlidesOAuth2Api": {
+          "id": "gURCEvfVPUB8FWsQ",
+          "name": "Google Slides account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d44b426e-29d8-4ab1-8ac2-ad27fcb0bc86",
+              "leftValue": "={{ $runIndex }}",
+              "rightValue": 2,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        920,
+        40
+      ],
+      "id": "f8a39e0b-1382-4347-990e-0c4c0521c284",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://slides.googleapis.com/v1/presentations/{{ $('Google Slides').item.json.presentationId }}:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSlidesOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"requests\": [\n    {\n      \"createSlide\": {\n        \"objectId\": \"slide_{{ $runIndex }}\",\n        \"slideLayoutReference\": {\n          \"predefinedLayout\": \"BLANK\"\n        }\n      }\n    },\n    {\n      \"updatePageProperties\": {\n        \"objectId\": \"slide_{{ $runIndex }}\",\n        \"pageProperties\": {\n          \"pageBackgroundFill\": {\n            \"solidFill\": {\n              \"color\": {\n                \"rgbColor\": {\n                  \"red\": 0.95,\n                  \"green\": 0.97,\n                  \"blue\": 0.95\n                }\n              },\n              \"alpha\": 1.0\n            }\n          }\n        },\n        \"fields\": \"pageBackgroundFill\"\n      }\n    },\n    {\n      \"createShape\": {\n        \"objectId\": \"bg_accent_{{ $runIndex }}\",\n        \"shapeType\": \"ELLIPSE\",\n        \"elementProperties\": {\n          \"pageObjectId\": \"slide_{{ $runIndex }}\",\n          \"size\": {\n            \"height\": {\n              \"magnitude\": 400,\n              \"unit\": \"PT\"\n            },\n            \"width\": {\n              \"magnitude\": 400,\n              \"unit\": \"PT\"\n            }\n          },\n          \"transform\": {\n            \"scaleX\": 1.2,\n            \"scaleY\": 0.6,\n            \"translateX\": 450,\n            \"translateY\": 200,\n            \"unit\": \"PT\"\n          }\n        }\n      }\n    },\n    {\n      \"updateShapeProperties\": {\n        \"objectId\": \"bg_accent_{{ $runIndex }}\",\n        \"shapeProperties\": {\n          \"shapeBackgroundFill\": {\n            \"solidFill\": {\n              \"color\": {\n                \"rgbColor\": {\n                  \"red\": 0.85,\n                  \"green\": 0.95,\n                  \"blue\": 0.87\n                }\n              },\n              \"alpha\": 0.6\n            }\n          }\n        },\n        \"fields\": \"shapeBackgroundFill\"\n      }\n    },\n    {\n      \"updateShapeProperties\": {\n        \"objectId\": \"bg_accent_{{ $runIndex }}\",\n        \"shapeProperties\": {\n          \"outline\": {\n            \"propertyState\": \"NOT_RENDERED\"\n          }\n        },\n        \"fields\": \"outline.propertyState\"\n      }\n    },\n    {\n      \"createShape\": {\n        \"objectId\": \"section_label_{{ $runIndex }}\",\n        \"shapeType\": \"TEXT_BOX\",\n        \"elementProperties\": {\n          \"pageObjectId\": \"slide_{{ $runIndex }}\",\n          \"size\": {\n            \"height\": {\n              \"magnitude\": 40,\n              \"unit\": \"PT\"\n            },\n            \"width\": {\n              \"magnitude\": 200,\n              \"unit\": \"PT\"\n            }\n          },\n          \"transform\": {\n            \"scaleX\": 1,\n            \"scaleY\": 1,\n            \"translateX\": 56,\n            \"translateY\": 15,\n            \"unit\": \"PT\"\n          }\n        }\n      }\n    },\n    {\n      \"insertText\": {\n        \"objectId\": \"section_label_{{ $runIndex }}\",\n        \"insertionIndex\": 0,\n        \"text\": \"{{ $json.logo_name }}\"\n      }\n    },\n    {\n      \"updateTextStyle\": {\n        \"objectId\": \"section_label_{{ $runIndex }}\",\n        \"textRange\": {\n          \"type\": \"ALL\"\n        },\n        \"style\": {\n          \"fontFamily\": \"Open Sans\",\n          \"fontSize\": {\n            \"magnitude\": 14,\n            \"unit\": \"PT\"\n          },\n          \"foregroundColor\": {\n            \"opaqueColor\": {\n              \"rgbColor\": {\n                \"red\": 0.4,\n                \"green\": 0.6,\n                \"blue\": 0.5\n              }\n            }\n          }\n        },\n        \"fields\": \"fontFamily,fontSize,foregroundColor\"\n      }\n    },\n    {\n      \"createShape\": {\n        \"objectId\": \"main_title_{{ $runIndex }}\",\n        \"shapeType\": \"TEXT_BOX\",\n        \"elementProperties\": {\n          \"pageObjectId\": \"slide_{{ $runIndex }}\",\n          \"size\": {\n            \"height\": {\n              \"magnitude\": 120,\n              \"unit\": \"PT\"\n            },\n            \"width\": {\n              \"magnitude\": 624,\n              \"unit\": \"PT\"\n            }\n          },\n          \"transform\": {\n            \"scaleX\": 1,\n            \"scaleY\": 1,\n            \"translateX\": 56,\n            \"translateY\": 47,\n            \"unit\": \"PT\"\n          }\n        }\n      }\n    },\n    {\n      \"insertText\": {\n        \"objectId\": \"main_title_{{ $runIndex }}\",\n        \"insertionIndex\": 0,\n        \"text\": \"{{ $('Loop Over Items').item.json.title }}\"\n      }\n    },\n    {\n      \"updateTextStyle\": {\n        \"objectId\": \"main_title_{{ $runIndex }}\",\n        \"textRange\": {\n          \"type\": \"ALL\"\n        },\n        \"style\": {\n          \"fontFamily\": \"Roboto\",\n          \"fontSize\": {\n            \"magnitude\": 48,\n            \"unit\": \"PT\"\n          },\n          \"foregroundColor\": {\n            \"opaqueColor\": {\n              \"rgbColor\": {\n                \"red\": 0.2,\n                \"green\": 0.3,\n                \"blue\": 0.25\n              }\n            }\n          },\n          \"bold\": true\n        },\n        \"fields\": \"fontFamily,fontSize,foregroundColor,bold\"\n      }\n    },\n    {\n      \"updateParagraphStyle\": {\n        \"objectId\": \"main_title_{{ $runIndex }}\",\n        \"textRange\": {\n          \"type\": \"ALL\"\n        },\n        \"style\": {\n          \"alignment\": \"START\",\n          \"lineSpacing\": 110\n        },\n        \"fields\": \"alignment,lineSpacing\"\n      }\n    },\n    {\n      \"createShape\": {\n        \"objectId\": \"description_{{ $runIndex }}\",\n        \"shapeType\": \"TEXT_BOX\",\n        \"elementProperties\": {\n          \"pageObjectId\": \"slide_{{ $runIndex }}\",\n          \"size\": {\n            \"height\": {\n              \"magnitude\": 60,\n              \"unit\": \"PT\"\n            },\n            \"width\": {\n              \"magnitude\": 400,\n              \"unit\": \"PT\"\n            }\n          },\n          \"transform\": {\n            \"scaleX\": 1,\n            \"scaleY\": 1,\n            \"translateX\": 56,\n            \"translateY\": 193,\n            \"unit\": \"PT\"\n          }\n        }\n      }\n    },\n    {\n      \"insertText\": {\n        \"objectId\": \"description_{{ $runIndex }}\",\n        \"insertionIndex\": 0,\n        \"text\": \"{{ $('Loop Over Items').item.json.subtitle || 'Subtitle' }}\"\n      }\n    },\n    {\n      \"updateTextStyle\": {\n        \"objectId\": \"description_{{ $runIndex }}\",\n        \"textRange\": {\n          \"type\": \"ALL\"\n        },\n        \"style\": {\n          \"fontFamily\": \"Open Sans\",\n          \"fontSize\": {\n            \"magnitude\": 16,\n            \"unit\": \"PT\"\n          },\n          \"foregroundColor\": {\n            \"opaqueColor\": {\n              \"rgbColor\": {\n                \"red\": 0.4,\n                \"green\": 0.4,\n                \"blue\": 0.4\n              }\n            }\n          }\n        },\n        \"fields\": \"fontFamily,fontSize,foregroundColor\"\n      }\n    },\n    {\n      \"createShape\": {\n        \"objectId\": \"bullet_box_{{ $runIndex }}\",\n        \"shapeType\": \"TEXT_BOX\",\n        \"elementProperties\": {\n          \"pageObjectId\": \"slide_{{ $runIndex }}\",\n          \"size\": {\n            \"height\": {\n              \"magnitude\": 120,\n              \"unit\": \"PT\"\n            },\n            \"width\": {\n              \"magnitude\": 625,\n              \"unit\": \"PT\"\n            }\n          },\n          \"transform\": {\n            \"scaleX\": 1,\n            \"scaleY\": 1,\n            \"translateX\": 56,\n            \"translateY\": 235,\n            \"unit\": \"PT\"\n          }\n        }\n      }\n    },\n    {\n      \"insertText\": {\n        \"objectId\": \"bullet_box_{{ $runIndex }}\",\n        \"insertionIndex\": 0,\n        \"text\": \"{{ $('Loop Over Items').item.json.bullets.join('\\\\n') }}\"\n      }\n    },\n    {\n      \"createParagraphBullets\": {\n        \"objectId\": \"bullet_box_{{ $runIndex }}\",\n        \"textRange\": {\n          \"type\": \"ALL\"\n        },\n        \"bulletPreset\": \"BULLET_DISC_CIRCLE_SQUARE\"\n      }\n    },\n    {\n      \"updateTextStyle\": {\n        \"objectId\": \"bullet_box_{{ $runIndex }}\",\n        \"textRange\": {\n          \"type\": \"ALL\"\n        },\n        \"style\": {\n          \"fontFamily\": \"Open Sans\",\n          \"fontSize\": {\n            \"magnitude\": 14,\n            \"unit\": \"PT\"\n          },\n          \"foregroundColor\": {\n            \"opaqueColor\": {\n              \"rgbColor\": {\n                \"red\": 0.35,\n                \"green\": 0.35,\n                \"blue\": 0.35\n              }\n            }\n          }\n        },\n        \"fields\": \"fontFamily,fontSize,foregroundColor\"\n      }\n    },\n    {\n      \"updateParagraphStyle\": {\n        \"objectId\": \"bullet_box_{{ $runIndex }}\",\n        \"textRange\": {\n          \"type\": \"ALL\"\n        },\n        \"style\": {\n          \"alignment\": \"START\",\n          \"lineSpacing\": 140,\n          \"spaceAbove\": {\n            \"magnitude\": 3,\n            \"unit\": \"PT\"\n          },\n          \"spaceBelow\": {\n            \"magnitude\": 3,\n            \"unit\": \"PT\"\n          },\n          \"indentStart\": {\n            \"magnitude\": 16,\n            \"unit\": \"PT\"\n          }\n        },\n        \"fields\": \"alignment,lineSpacing,spaceAbove,spaceBelow,indentStart\"\n      }\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        -380
+      ],
+      "id": "5a27f636-1ef4-4541-b9ae-1728347f803e",
+      "name": "Google Slides - HQ Style 1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Ej4NtQo17tHNhsez",
+          "name": "Google Sheets account"
+        },
+        "googleSlidesOAuth2Api": {
+          "id": "gURCEvfVPUB8FWsQ",
+          "name": "Google Slides account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfa9ce68-77ea-478d-96fc-51ea7b2a8254",
+              "name": "title",
+              "value": "={{ $json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "c8ef02e4-1d48-45f8-8a3c-2dc541e9d273",
+              "name": "subtitle",
+              "value": "={{ $json.subtitle }}",
+              "type": "string"
+            },
+            {
+              "id": "21a9ec01-f05d-4046-9759-25d9cf3ca434",
+              "name": "bullets",
+              "value": "={{ $json.bullets }}",
+              "type": "string"
+            },
+            {
+              "id": "2402c67b-1fe4-4bcf-b168-71d0ce824948",
+              "name": "logo_name",
+              "value": "n8n.io - SolomonChrist.com",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1420,
+        -180
+      ],
+      "id": "25b1ca04-fcd1-4eaa-b353-3bd2bcf579f5",
+      "name": "Add Additional Slide Info"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfa9ce68-77ea-478d-96fc-51ea7b2a8254",
+              "name": "total_slides",
+              "value": "=10",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        160,
+        -200
+      ],
+      "id": "f554126f-563b-44e1-9712-01218b13d69a",
+      "name": "Total_Slides_To_Generate"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://slides.googleapis.com/v1/presentations/{{ $('Google Slides').item.json.presentationId }}:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSlidesOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"requests\": [\n    {\n      \"createSlide\": {\n        \"objectId\": \"slide_{{ $runIndex }}\",\n        \"slideLayoutReference\": {\n          \"predefinedLayout\": \"BLANK\"\n        }\n      }\n    },\n    {\n      \"updatePageProperties\": {\n        \"objectId\": \"slide_{{ $runIndex }}\",\n        \"pageProperties\": {\n          \"pageBackgroundFill\": {\n            \"solidFill\": {\n              \"color\": {\n                \"rgbColor\": {\n                  \"red\": 0.98,\n                  \"green\": 0.98,\n                  \"blue\": 0.98\n                }\n              },\n              \"alpha\": 1.0\n            }\n          }\n        },\n        \"fields\": \"pageBackgroundFill\"\n      }\n    },\n    {\n      \"createShape\": {\n        \"objectId\": \"bg_shape_1_{{ $runIndex }}\",\n        \"shapeType\": \"ELLIPSE\",\n        \"elementProperties\": {\n          \"pageObjectId\": \"slide_{{ $runIndex }}\",\n          \"size\": {\n            \"height\": {\n              \"magnitude\": 350,\n              \"unit\": \"PT\"\n            },\n            \"width\": {\n              \"magnitude\": 350,\n              \"unit\": \"PT\"\n            }\n          },\n          \"transform\": {\n            \"scaleX\": 1.5,\n            \"scaleY\": 0.8,\n            \"translateX\": 400,\n            \"translateY\": -50,\n            \"unit\": \"PT\"\n          }\n        }\n      }\n    },\n    {\n      \"updateShapeProperties\": {\n        \"objectId\": \"bg_shape_1_{{ $runIndex }}\",\n        \"shapeProperties\": {\n          \"shapeBackgroundFill\": {\n            \"solidFill\": {\n              \"color\": {\n                \"rgbColor\": {\n                  \"red\": 1.0,\n                  \"green\": 0.65,\n                  \"blue\": 0.3\n                }\n              },\n              \"alpha\": 0.85\n            }\n          }\n        },\n        \"fields\": \"shapeBackgroundFill\"\n      }\n    },\n    {\n      \"updateShapeProperties\": {\n        \"objectId\": \"bg_shape_1_{{ $runIndex }}\",\n        \"shapeProperties\": {\n          \"outline\": {\n            \"propertyState\": \"NOT_RENDERED\"\n          }\n        },\n        \"fields\": \"outline.propertyState\"\n      }\n    },\n    {\n      \"createShape\": {\n        \"objectId\": \"bg_shape_2_{{ $runIndex }}\",\n        \"shapeType\": \"ELLIPSE\",\n        \"elementProperties\": {\n          \"pageObjectId\": \"slide_{{ $runIndex }}\",\n          \"size\": {\n            \"height\": {\n              \"magnitude\": 300,\n              \"unit\": \"PT\"\n            },\n            \"width\": {\n              \"magnitude\": 300,\n              \"unit\": \"PT\"\n            }\n          },\n          \"transform\": {\n            \"scaleX\": 1.3,\n            \"scaleY\": 0.9,\n            \"translateX\": 450,\n            \"translateY\": 20,\n            \"unit\": \"PT\"\n          }\n        }\n      }\n    },\n    {\n      \"updateShapeProperties\": {\n        \"objectId\": \"bg_shape_2_{{ $runIndex }}\",\n        \"shapeProperties\": {\n          \"shapeBackgroundFill\": {\n            \"solidFill\": {\n              \"color\": {\n                \"rgbColor\": {\n                  \"red\": 0.3,\n                  \"green\": 0.8,\n                  \"blue\": 0.7\n                }\n              },\n              \"alpha\": 0.75\n            }\n          }\n        },\n        \"fields\": \"shapeBackgroundFill\"\n      }\n    },\n    {\n      \"updateShapeProperties\": {\n        \"objectId\": \"bg_shape_2_{{ $runIndex }}\",\n        \"shapeProperties\": {\n          \"outline\": {\n            \"propertyState\": \"NOT_RENDERED\"\n          }\n        },\n        \"fields\": \"outline.propertyState\"\n      }\n    },\n    {\n      \"createShape\": {\n        \"objectId\": \"bg_shape_3_{{ $runIndex }}\",\n        \"shapeType\": \"ELLIPSE\",\n        \"elementProperties\": {\n          \"pageObjectId\": \"slide_{{ $runIndex }}\",\n          \"size\": {\n            \"height\": {\n              \"magnitude\": 250,\n              \"unit\": \"PT\"\n            },\n            \"width\": {\n              \"magnitude\": 250,\n              \"unit\": \"PT\"\n            }\n          },\n          \"transform\": {\n            \"scaleX\": 1.1,\n            \"scaleY\": 1.0,\n            \"translateX\": 500,\n            \"translateY\": 90,\n            \"unit\": \"PT\"\n          }\n        }\n      }\n    },\n    {\n      \"updateShapeProperties\": {\n        \"objectId\": \"bg_shape_3_{{ $runIndex }}\",\n        \"shapeProperties\": {\n          \"shapeBackgroundFill\": {\n            \"solidFill\": {\n              \"color\": {\n                \"rgbColor\": {\n                  \"red\": 1.0,\n                  \"green\": 0.5,\n                  \"blue\": 0.7\n                }\n              },\n              \"alpha\": 0.65\n            }\n          }\n        },\n        \"fields\": \"shapeBackgroundFill\"\n      }\n    },\n    {\n      \"updateShapeProperties\": {\n        \"objectId\": \"bg_shape_3_{{ $runIndex }}\",\n        \"shapeProperties\": {\n          \"outline\": {\n            \"propertyState\": \"NOT_RENDERED\"\n          }\n        },\n        \"fields\": \"outline.propertyState\"\n      }\n    },\n    {\n      \"createShape\": {\n        \"objectId\": \"bg_shape_4_{{ $runIndex }}\",\n        \"shapeType\": \"ELLIPSE\",\n        \"elementProperties\": {\n          \"pageObjectId\": \"slide_{{ $runIndex }}\",\n          \"size\": {\n            \"height\": {\n              \"magnitude\": 200,\n              \"unit\": \"PT\"\n            },\n            \"width\": {\n              \"magnitude\": 200,\n              \"unit\": \"PT\"\n            }\n          },\n          \"transform\": {\n            \"scaleX\": 0.9,\n            \"scaleY\": 1.2,\n            \"translateX\": 550,\n            \"translateY\": 160,\n            \"unit\": \"PT\"\n          }\n        }\n      }\n    },\n    {\n      \"updateShapeProperties\": {\n        \"objectId\": \"bg_shape_4_{{ $runIndex }}\",\n        \"shapeProperties\": {\n          \"shapeBackgroundFill\": {\n            \"solidFill\": {\n              \"color\": {\n                \"rgbColor\": {\n                  \"red\": 0.4,\n                  \"green\": 0.6,\n                  \"blue\": 0.95\n                }\n              },\n              \"alpha\": 0.55\n            }\n          }\n        },\n        \"fields\": \"shapeBackgroundFill\"\n      }\n    },\n    {\n      \"updateShapeProperties\": {\n        \"objectId\": \"bg_shape_4_{{ $runIndex }}\",\n        \"shapeProperties\": {\n          \"outline\": {\n            \"propertyState\": \"NOT_RENDERED\"\n          }\n        },\n        \"fields\": \"outline.propertyState\"\n      }\n    },\n    {\n      \"createShape\": {\n        \"objectId\": \"section_label_{{ $runIndex }}\",\n        \"shapeType\": \"TEXT_BOX\",\n        \"elementProperties\": {\n          \"pageObjectId\": \"slide_{{ $runIndex }}\",\n          \"size\": {\n            \"height\": { \"magnitude\": 38, \"unit\": \"PT\" },\n            \"width\": { \"magnitude\": 200, \"unit\": \"PT\" }\n          },\n          \"transform\": {\n            \"scaleX\": 1,\n            \"scaleY\": 1,\n            \"translateX\": 20,\n            \"translateY\": 16,\n            \"unit\": \"PT\"\n          }\n        }\n      }\n    },\n    {\n      \"insertText\": {\n        \"objectId\": \"section_label_{{ $runIndex }}\",\n        \"insertionIndex\": 0,\n        \"text\": \"{{ $json.logo_name }}\"\n      }\n    },\n    {\n      \"updateTextStyle\": {\n        \"objectId\": \"section_label_{{ $runIndex }}\",\n        \"textRange\": { \"type\": \"ALL\" },\n        \"style\": {\n          \"fontFamily\": \"Open Sans\",\n          \"fontSize\": { \"magnitude\": 14, \"unit\": \"PT\" },\n          \"foregroundColor\": {\n            \"opaqueColor\": {\n              \"rgbColor\": { \"red\": 0.4, \"green\": 0.6, \"blue\": 0.5 }\n            }\n          }\n        },\n        \"fields\": \"fontFamily,fontSize,foregroundColor\"\n      }\n    },\n    {\n      \"createShape\": {\n        \"objectId\": \"title_box_{{ $runIndex }}_1\",\n        \"shapeType\": \"TEXT_BOX\",\n        \"elementProperties\": {\n          \"pageObjectId\": \"slide_{{ $runIndex }}\",\n          \"size\": {\n            \"height\": {\n              \"magnitude\": 89,\n              \"unit\": \"PT\"\n            },\n            \"width\": {\n              \"magnitude\": 681,\n              \"unit\": \"PT\"\n            }\n          },\n          \"transform\": {\n            \"scaleX\": 1,\n            \"scaleY\": 1,\n            \"translateX\": 20,\n            \"translateY\": 51,\n            \"unit\": \"PT\"\n          }\n        }\n      }\n    },\n    {\n      \"insertText\": {\n        \"objectId\": \"title_box_{{ $runIndex }}_1\",\n        \"insertionIndex\": 0,\n        \"text\": \"{{ $('Loop Over Items').item.json.title }}\"\n      }\n    },\n    {\n      \"updateTextStyle\": {\n        \"objectId\": \"title_box_{{ $runIndex }}_1\",\n        \"textRange\": {\n          \"type\": \"ALL\"\n        },\n        \"style\": {\n          \"fontFamily\": \"Roboto\",\n          \"fontSize\": {\n            \"magnitude\": 34,\n            \"unit\": \"PT\"\n          },\n          \"foregroundColor\": {\n            \"opaqueColor\": {\n              \"rgbColor\": {\n                \"red\": 0.15,\n                \"green\": 0.15,\n                \"blue\": 0.15\n              }\n            }\n          },\n          \"bold\": true,\n          \"italic\": false\n        },\n        \"fields\": \"fontFamily,fontSize,foregroundColor,bold,italic\"\n      }\n    },\n    {\n      \"updateParagraphStyle\": {\n        \"objectId\": \"title_box_{{ $runIndex }}_1\",\n        \"textRange\": {\n          \"type\": \"ALL\"\n        },\n        \"style\": {\n          \"alignment\": \"START\",\n          \"spaceAbove\": {\n            \"magnitude\": 12,\n            \"unit\": \"PT\"\n          },\n          \"spaceBelow\": {\n            \"magnitude\": 12,\n            \"unit\": \"PT\"\n          }\n        },\n        \"fields\": \"alignment,spaceAbove,spaceBelow\"\n      }\n    },\n    {\n      \"createShape\": {\n        \"objectId\": \"subtitle_box_{{ $runIndex }}\",\n        \"shapeType\": \"TEXT_BOX\",\n        \"elementProperties\": {\n          \"pageObjectId\": \"slide_{{ $runIndex }}\",\n          \"size\": {\n            \"height\": {\n              \"magnitude\": 43,\n              \"unit\": \"PT\"\n            },\n            \"width\": {\n              \"magnitude\": 420,\n              \"unit\": \"PT\"\n            }\n          },\n          \"transform\": {\n            \"scaleX\": 1,\n            \"scaleY\": 1,\n            \"translateX\": 20,\n            \"translateY\": 140,\n            \"unit\": \"PT\"\n          }\n        }\n      }\n    },\n    {\n      \"insertText\": {\n        \"objectId\": \"subtitle_box_{{ $runIndex }}\",\n        \"insertionIndex\": 0,\n        \"text\": \"{{ $('Loop Over Items').item.json.subtitle || 'Subtitle Here' }}\"\n      }\n    },\n    {\n      \"updateTextStyle\": {\n        \"objectId\": \"subtitle_box_{{ $runIndex }}\",\n        \"textRange\": {\n          \"type\": \"ALL\"\n        },\n        \"style\": {\n          \"fontFamily\": \"Open Sans\",\n          \"fontSize\": {\n            \"magnitude\": 14,\n            \"unit\": \"PT\"\n          },\n          \"foregroundColor\": {\n            \"opaqueColor\": {\n              \"rgbColor\": {\n                \"red\": 0.4,\n                \"green\": 0.4,\n                \"blue\": 0.4\n              }\n            }\n          },\n          \"bold\": false,\n          \"italic\": false\n        },\n        \"fields\": \"fontFamily,fontSize,foregroundColor,bold,italic\"\n      }\n    },\n    {\n      \"createShape\": {\n        \"objectId\": \"bullet_box_{{ $runIndex }}\",\n        \"shapeType\": \"TEXT_BOX\",\n        \"elementProperties\": {\n          \"pageObjectId\": \"slide_{{ $runIndex }}\",\n          \"size\": {\n            \"height\": {\n              \"magnitude\": 197,\n              \"unit\": \"PT\"\n            },\n            \"width\": {\n              \"magnitude\": 469,\n              \"unit\": \"PT\"\n            }\n          },\n          \"transform\": {\n            \"scaleX\": 1,\n            \"scaleY\": 1,\n            \"translateX\": 20,\n            \"translateY\": 194,\n            \"unit\": \"PT\"\n          }\n        }\n      }\n    },\n    {\n      \"insertText\": {\n        \"objectId\": \"bullet_box_{{ $runIndex }}\",\n        \"insertionIndex\": 0,\n        \"text\": \"{{ $('Loop Over Items').item.json.bullets.join('\\\\n') }}\"\n      }\n    },\n    {\n      \"createParagraphBullets\": {\n        \"objectId\": \"bullet_box_{{ $runIndex }}\",\n        \"textRange\": {\n          \"type\": \"ALL\"\n        },\n        \"bulletPreset\": \"BULLET_DISC_CIRCLE_SQUARE\"\n      }\n    },\n    {\n      \"updateTextStyle\": {\n        \"objectId\": \"bullet_box_{{ $runIndex }}\",\n        \"textRange\": {\n          \"type\": \"ALL\"\n        },\n        \"style\": {\n          \"fontFamily\": \"Open Sans\",\n          \"fontSize\": {\n            \"magnitude\": 14,\n            \"unit\": \"PT\"\n          },\n          \"foregroundColor\": {\n            \"opaqueColor\": {\n              \"rgbColor\": {\n                \"red\": 0.25,\n                \"green\": 0.25,\n                \"blue\": 0.25\n              }\n            }\n          },\n          \"bold\": false,\n          \"italic\": false\n        },\n        \"fields\": \"fontFamily,fontSize,foregroundColor,bold,italic\"\n      }\n    },\n    {\n      \"updateParagraphStyle\": {\n        \"objectId\": \"bullet_box_{{ $runIndex }}\",\n        \"textRange\": {\n          \"type\": \"ALL\"\n        },\n        \"style\": {\n          \"alignment\": \"START\",\n          \"lineSpacing\": 140,\n          \"spaceAbove\": {\n            \"magnitude\": 6,\n            \"unit\": \"PT\"\n          },\n          \"spaceBelow\": {\n            \"magnitude\": 6,\n            \"unit\": \"PT\"\n          },\n          \"indentStart\": {\n            \"magnitude\": 20,\n            \"unit\": \"PT\"\n          }\n        },\n        \"fields\": \"alignment,lineSpacing,spaceAbove,spaceBelow,indentStart\"\n      }\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        -200
+      ],
+      "id": "4f7f40da-67d1-44c6-83f9-8ce863bfcc6e",
+      "name": "Google_Slides_Create_Slide",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Ej4NtQo17tHNhsez",
+          "name": "Google Sheets account"
+        },
+        "googleSlidesOAuth2Api": {
+          "id": "gURCEvfVPUB8FWsQ",
+          "name": "Google Slides account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Solomon Christ AI www.SolomonChrist.com\nJoin My Skool Community: https://www.skool.com/learn-automation/about\n\n![My Image](https://raw.githubusercontent.com/SolomonChrist/AICode/main/solomonchristai_banner_logo.jpg)\n\n## My Google Sheets Presentation Generator\n",
+        "height": 540,
+        "width": 620
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -480,
+        -800
+      ],
+      "id": "2f7c855e-3c4e-4311-ab50-3cd19136e85f",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Google Slides",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Add Additional Slide Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Slides": {
+      "main": [
+        [
+          {
+            "node": "Total_Slides_To_Generate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Slides - HQ Style 1": {
+      "main": [
+        []
+      ]
+    },
+    "Add Additional Slide Info": {
+      "main": [
+        [
+          {
+            "node": "Google_Slides_Create_Slide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Total_Slides_To_Generate": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google_Slides_Create_Slide": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "14b18416-2e78-4144-a8b9-642f2b2f44d8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e239e71cc33c24fa5360a33f577da9ea25748bfc425b6bdd1354cb6426fb2b0a"
+  },
+  "id": "CtR4iWXg7sT72Mc3",
+  "tags": []
+}
